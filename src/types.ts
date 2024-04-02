@@ -6,29 +6,38 @@ import {
     SpanStatusCode,
     Tracer
 } from "@opentelemetry/api";
-import { ExporterConfig } from "@opentelemetry/exporter-jaeger";
 import { Instrumentation } from "@opentelemetry/instrumentation";
 import { HttpInstrumentationConfig } from "@opentelemetry/instrumentation-http";
 import { NodeTracerConfig } from "@opentelemetry/node";
 import { SemanticAttributes } from "@opentelemetry/semantic-conventions";
 import { BufferConfig } from "@opentelemetry/tracing";
 import { REQUEST_ID_PROPERTY } from "./constants";
+import { CompressionAlgorithm, OTLPExporterNodeConfigBase } from "@opentelemetry/otlp-exporter-base/build/src/platform/node/types";
 
 export type TracingOptions = {
     enabled: boolean;
     serviceName: string;
     serviceVersion?: string;
     propagationFormat: PropagationFormat;
-    tags?: Tags;
     tracerConfig: NodeTracerConfig;
     setRequestId: boolean;
-    jaeger: {
-        enabled: boolean;
+    // //@deprecated
+    //TODO: Add support for Jaeger, though Deprecated.
+
+    // jaeger: {
+    //     enabled: boolean;
+    //     spanProcessor: {
+    //         type: SpanProcessor;
+    //         config?: BufferConfig;
+    //     };
+    // } & JaegerExporterConfig;
+    otel:{
+        enabled: boolean,
         spanProcessor: {
             type: SpanProcessor;
             config?: BufferConfig;
         };
-    } & JaegerExporterConfig;
+    } & OTLPExporterNodeConfigBase,
     console: {
         enabled: boolean;
     };
@@ -53,9 +62,8 @@ export enum SpanProcessor {
     BATCH = "batch"
 }
 
-export type Tags = ExporterConfig["tags"];
 
-export type JaegerExporterConfig = Omit<ExporterConfig, "serviceName" | "tags">;
+
 
 export type MethodInvocationConfig = {
     enabled?: boolean;

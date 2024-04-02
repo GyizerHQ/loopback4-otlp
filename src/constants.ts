@@ -1,7 +1,8 @@
 import { DiagLogLevel } from "@opentelemetry/api";
 import { defaultServiceName } from "@opentelemetry/resources";
-import { getEnv, getEnvBoolean, getEnvNumber, getServiceDetails } from "./internal";
+import { getEnv, getEnvBoolean, getEnvNumber, getEnvRecord, getServiceDetails } from "./internal";
 import { PropagationFormat, SpanProcessor, TracingConfig, TracingOptions } from "./types";
+import { CompressionAlgorithm } from "@opentelemetry/otlp-exporter-base";
 
 export const DEFAULT_SERVICE_NAME = defaultServiceName();
 
@@ -14,20 +15,29 @@ export const REQUEST_ID_HEADER = "x-request-id";
 export const DEFAULT_IGNORED_PATHS = ["/ping", "/metrics", "/live", "/ready", /^\/health\/?.*$/];
 
 export const DEFAULT_TRACING_OPTIONS: TracingOptions = {
+    otel: {
+        enabled: true,
+        spanProcessor:{
+            type: SpanProcessor.BATCH
+        },
+        url: "localhost",
+        compression: CompressionAlgorithm.GZIP
+    },
     enabled: false,
     serviceName: SERVICE_DETAILS.name,
     serviceVersion: SERVICE_DETAILS.version,
     propagationFormat: PropagationFormat.JAEGER,
     tracerConfig: {},
     setRequestId: true,
-    jaeger: {
-        enabled: true,
-        host: "localhost",
-        port: 6832,
-        spanProcessor: {
-            type: SpanProcessor.BATCH
-        }
-    },
+    // jaeger: {
+    //     enabled: false,
+    //     host: "localhost",
+    //     port: 6832,
+    //     spanProcessor: {
+    //         type: SpanProcessor.BATCH
+    //     }
+    // },
+
     console: {
         enabled: false
     },
@@ -51,13 +61,21 @@ export const ENV_TRACING_CONFIG: TracingConfig = {
     serviceVersion: getEnv("TRACING_SERVICE_VERSION"),
     propagationFormat: getEnv<PropagationFormat>("TRACING_PROPAGATION_FORMAT"),
     setRequestId: getEnvBoolean("TRACING_SET_REQUEST_ID"),
-    jaeger: {
-        enabled: getEnvBoolean("TRACING_JAEGER_ENABLED"),
-        host: getEnv("TRACING_JAEGER_HOST"),
-        port: getEnvNumber("TRACING_JAEGER_PORT"),
-        endpoint: getEnv("TRACING_JAEGER_ENDPOINT"),
+    // jaeger: {
+    //     enabled: getEnvBoolean("TRACING_JAEGER_ENABLED"),
+    //     host: getEnv("TRACING_JAEGER_HOST"),
+    //     port: getEnvNumber("TRACING_JAEGER_PORT"),
+    //     endpoint: getEnv("TRACING_JAEGER_ENDPOINT"),
+    //     spanProcessor: {
+    //         type: getEnv<SpanProcessor>("TRACING_JAEGER_SPAN_PROCESSOR")
+    //     }
+    // },
+    otel:{
+        enabled:getEnvBoolean("OTEL_EXPORTER_ENABLED") ,
+        url: getEnv("OTEL_EXPORTER_OTLP_ENDPOINT"),
+        headers: getEnvRecord("OTEL_EXPORTER_OTLP_HEADERS"),
         spanProcessor: {
-            type: getEnv<SpanProcessor>("TRACING_JAEGER_SPAN_PROCESSOR")
+            type: getEnv<SpanProcessor>("OTEL_EXPORTER_OTLP_PROCESSOR")
         }
     },
     console: {

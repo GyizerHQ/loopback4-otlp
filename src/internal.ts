@@ -22,6 +22,18 @@ export function getEnvNumber(key: string) {
     return Number.isNaN(value) ? undefined : value;
 }
 
+export function getEnvRecord(key: string): Record<string, any> | undefined{
+    const value = process.env[key];
+    if(!value) return ;
+    const rec: Record<string,  any> = {};
+    value.split(",")
+        .forEach(headerString=>{
+            const [k, v] = headerString.split("=");
+            rec[k] = v
+        })
+    return rec;
+}
+
 export function getEnvBoolean(key: string) {
     const value = process.env[key];
 

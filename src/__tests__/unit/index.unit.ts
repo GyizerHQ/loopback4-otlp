@@ -1,7 +1,7 @@
 import { expect } from "@loopback/testlab";
 import * as otelApi from "@opentelemetry/api";
 import * as otelCore from "@opentelemetry/core";
-import * as otelSdk from "@opentelemetry/tracing";
+import * as otelSdk from "@opentelemetry/sdk-trace-node";
 import tracing, { api, core, sdk } from "../../index";
 
 describe("Index (unit)", () => {

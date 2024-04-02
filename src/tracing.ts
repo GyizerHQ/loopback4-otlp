@@ -1,32 +1,15 @@
-import {
-    context,
-    diag,
-    DiagConsoleLogger,
-    Span,
-    TextMapPropagator,
-    trace,
-    Tracer
-} from "@opentelemetry/api";
-import { NonRecordingSpan } from "@opentelemetry/api/build/src/trace/NonRecordingSpan";
-import { NoopTracer } from "@opentelemetry/api/build/src/trace/NoopTracer";
-import { JaegerExporter } from "@opentelemetry/exporter-jaeger";
+import { context, diag, DiagConsoleLogger, Span, trace, Tracer } from "@opentelemetry/api";
+import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-proto";
 import { InstrumentationOption, registerInstrumentations } from "@opentelemetry/instrumentation";
 import { HttpInstrumentation } from "@opentelemetry/instrumentation-http";
-import { NodeTracerProvider } from "@opentelemetry/node";
-import { JaegerPropagator } from "@opentelemetry/propagator-jaeger";
 import { Resource } from "@opentelemetry/resources";
 import { ResourceAttributes } from "@opentelemetry/semantic-conventions";
-import {
-    BatchSpanProcessor,
-    ConsoleSpanExporter,
-    SimpleSpanProcessor,
-    SpanExporter
-} from "@opentelemetry/tracing";
 import debugFactory from "debug";
 import { v4 as uuidv4 } from "uuid";
 import { DEFAULT_TRACING_OPTIONS } from "./constants";
-import { PropagationFormat, SpanProcessor, TracingConfig, TracingOptions } from "./types";
+import { SpanProcessor, TracingConfig, TracingOptions } from "./types";
 import { mergeTracingConfig } from "./utils";
+import { BatchSpanProcessor, ConsoleSpanExporter, NodeTracerProvider, SimpleSpanProcessor, SpanExporter } from "@opentelemetry/sdk-trace-node";
 
 const debug = debugFactory("loopback:tracing:init");
 
@@ -35,7 +18,8 @@ const { SERVICE_NAME, SERVICE_VERSION, SERVICE_INSTANCE_ID } = ResourceAttribute
 const exporters: SpanExporter[] = [];
 let tracerProvider: NodeTracerProvider | undefined;
 
-export let tracer: Tracer = new NoopTracer();
+
+export let tracer: Tracer;
 export let tracingOptions: TracingOptions = DEFAULT_TRACING_OPTIONS;
 
 export function initializeTracing(config: TracingConfig = {}) {
@@ -52,25 +36,22 @@ export function initializeTracing(config: TracingConfig = {}) {
 
         tracerProvider = new NodeTracerProvider({ ...options.tracerConfig, resource });
 
-        if (options.jaeger.enabled) {
-            const jaegerExporter = new JaegerExporter({
-                tags: options.tags,
-                ...options.jaeger
-            });
+        if (options.otel.enabled) {
+            const OtlpExporter = new OTLPTraceExporter(options.otel);
 
-            if (options.jaeger.spanProcessor.type === SpanProcessor.SIMPLE) {
-                tracerProvider.addSpanProcessor(new SimpleSpanProcessor(jaegerExporter));
-            } else if (options.jaeger.spanProcessor.type === SpanProcessor.BATCH) {
+            if (options.otel.spanProcessor.type === SpanProcessor.SIMPLE) {
+                tracerProvider.addSpanProcessor(new SimpleSpanProcessor(OtlpExporter));
+            } else if (options.otel.spanProcessor.type === SpanProcessor.BATCH) {
                 tracerProvider.addSpanProcessor(
-                    new BatchSpanProcessor(jaegerExporter, options.jaeger.spanProcessor.config)
+                    new BatchSpanProcessor(OtlpExporter, options.otel.spanProcessor.config)
                 );
             } else {
                 throw Error(
-                    `Invalid jaeger span processor type: ${options.jaeger.spanProcessor.type}`
+                    `Invalid OTLP span processor type: ${options.otel.spanProcessor.type}`
                 );
             }
 
-            exporters.push(jaegerExporter);
+            exporters.push(OtlpExporter);
         }
 
         if (options.console.enabled) {
@@ -83,15 +64,7 @@ export function initializeTracing(config: TracingConfig = {}) {
             diag.setLogger(new DiagConsoleLogger(), options.diagnostics.logLevel);
         }
 
-        let propagator: TextMapPropagator | undefined;
-
-        if (options.propagationFormat === PropagationFormat.JAEGER) {
-            propagator = new JaegerPropagator();
-        } else if (options.propagationFormat !== PropagationFormat.W3C) {
-            throw Error(`Invalid propagation format: ${options.propagationFormat}`);
-        }
-
-        tracerProvider.register({ propagator });
+        //TODO: Add support to add propagation through config.
 
         registerInstrumentations({
             tracerProvider,
@@ -115,13 +88,15 @@ export async function shutdownTracing() {
         shutdowns.push(tracerProvider.shutdown());
     }
 
-    exporters.forEach(exporter => shutdowns.push(exporter.shutdown()));
+    exporters.forEach(exporter => shutdowns.push(
+        exporter.shutdown()
+    ));
 
     await Promise.all(shutdowns);
 }
 
 export function getActiveSpan(): Span {
-    return trace.getSpan(context.active()) ?? new NonRecordingSpan();
+    return trace.getSpan(context.active()) ?? tracer.startSpan("ThisIsName");
 }
 
 function defaultInstrumentations(config: TracingOptions): InstrumentationOption[] {
